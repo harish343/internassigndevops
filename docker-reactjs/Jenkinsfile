@@ -1,0 +1,54 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                sh '''
+                    git clone https://github.com/harish343/internassigndevops.git
+                '''
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh '''
+                cd internassigndevops/docker-reactjs
+                docker build -t reactapp .
+                docker tag reactapp:latest public.ecr.aws/o0k6r0y6/reactapp:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh '''
+                docker push public.ecr.aws/o0k6r0y6/reactapp:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Remove files or directories here
+                    sh 'rm -rf *'
+                }
+            }
+        }
+
+        stage('Dockerfileuploadandrun') {
+            steps {
+                sshagent(['deployserver']) {
+                    sh 'ssh -o StrictHostKeyChecking=no deploy@54.224.134.2 docker run -p 80:80 docker-reactjs'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            mail bcc: '', body: "<br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br> URL de build: ${env.BUILD_URL}", cc: '', charset: 'UTF-8', from: '', mimeType: 'text/html', replyTo: '', subject: "${currentBuild.result} CI: Project name -> ${env.JOB_NAME}", to: "harishnarnaware75@gmail.com";
+        }
+    }
+}
